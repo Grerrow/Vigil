@@ -1,0 +1,15 @@
+.git
+.venv/
+.venv-wsl/
+**/__pycache__/
+**/*.py[cod]
+**/node_modules/
+**/dist/
+backend/data/
+backend/runs/
+runs/
+*.db
+*.log
+.env
+.env.*
+!.env.example

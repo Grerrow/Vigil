@@ -1,0 +1,32 @@
+# Python
+.venv/
+.venv-wsl/
+__pycache__/
+*.pyc
+
+# Model weights (large binaries, downloaded on demand)
+*.pt
+*.onnx
+
+# Backend local data
+backend/data/
+*.db
+
+# Ultralytics prediction output (auto-created by `yolo predict`, e.g. runs/detect/predict-2)
+runs/
+
+# Node / frontend
+node_modules/
+frontend/dist/
+
+# Env files
+.env
+!.env.example
+
+# OS / editor
+.DS_Store
+Thumbs.db
+
+# md
+INSTRUCTIONS.md
+SETUP_LOG.md

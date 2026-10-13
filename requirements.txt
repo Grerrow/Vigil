@@ -1,0 +1,17 @@
+# PyTorch: intentionally NOT pinned to a specific index here. Local installs use
+# the platform's default wheels (CPU on Windows, CUDA-capable on WSL/Linux). The
+# Dockerfile installs CPU-only wheels explicitly before this requirements file.
+# See SETUP_LOG.md section 6c for the local WSL CUDA setup.
+torch
+torchvision
+
+fastapi==0.115.0
+uvicorn[standard]==0.30.6
+python-multipart==0.0.9
+pydantic==2.9.2
+ultralytics>=8.3.0
+opencv-python==4.10.0.84
+numpy>=1.26.4
+python-dotenv==1.0.1
+sqlmodel>=0.0.22
+pandas>=2.2.3
