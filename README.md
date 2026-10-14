@@ -104,21 +104,6 @@ Example values are in `.env.example`.
 | `DATABASE_PATH` | SQLite database file path |
 | `VITE_API_BASE_URL` | Frontend API base URL |
 
-## Validation metrics template
-
-Use at least 10 representative test images and fill this table with measured values.
-
-| Metric | Target | Result |
-|---|---|---|
-| Detection Accuracy | >= 85% | — |
-| False Positives | <= 10% | — |
-| Average Inference Time | <= 1.5 s | — |
-| Average Confidence | >= 0.70 | — |
-| System Reliability | 100% | — |
-
-## Screenshots
-
-Add 2–3 screenshots of successful detections with visible overlays in this section.
 
 ## Features to be added
 
