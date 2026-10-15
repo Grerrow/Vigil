@@ -36,6 +36,7 @@ repo/
 ## Features
 
 - Image upload and person detection (`/detect`)
+- Video upload with per-frame detection (`/detect/video`)
 - Bounding box overlays with per-person confidence
 - Summary metrics (count, average confidence, inference time)
 - Detection history storage (`/history`)
@@ -49,8 +50,30 @@ repo/
 |---|---|---|
 | `/health` | GET | Service health check |
 | `/detect` | POST | Detect people from an uploaded image |
+| `/detect/video` | POST | Detect people in sampled frames of an uploaded video |
 | `/history` | GET | Return stored detections with optional filters |
 | `/reset` | POST | Clear stored detection history |
+
+### Video detection
+
+`POST /detect/video` accepts a video file as multipart form data under the `file`
+field. It samples frames from the uploaded video, runs person detection on each
+sampled frame, and stores one history record summarizing the busiest sampled
+frame.
+
+Example request:
+
+```bash
+curl -X POST http://localhost:8000/detect/video \
+  -F "file=@path/to/video.mp4;type=video/mp4"
+```
+
+The response includes the video frame dimensions, number of frames analyzed,
+peak and average person counts, average confidence across detections in the
+sampled frames, total inference time, and each sampled frame's timestamp and
+detections. Frame timestamps are in milliseconds. Sampling can be configured
+with `VIDEO_SAMPLE_INTERVAL_S` (default `0.5` seconds) and `VIDEO_MAX_FRAMES`
+(default `240`).
 
 ## Quick start (Docker)
 
@@ -102,12 +125,13 @@ Example values are in `.env.example`.
 | `MODEL_NAME` | YOLO model weights |
 | `CONFIDENCE_THRESHOLD` | Detection threshold |
 | `DATABASE_PATH` | SQLite database file path |
+| `VIDEO_SAMPLE_INTERVAL_S` | Time interval between sampled video frames, in seconds |
+| `VIDEO_MAX_FRAMES` | Maximum number of video frames analyzed per upload |
 | `VITE_API_BASE_URL` | Frontend API base URL |
 
 
 ## Features to be added
 
-- Video file scanning with frame-by-frame detection
 - Live webcam and RTSP/CCTV stream ingestion with overlays
 - Multi-camera management and per-camera tracking
 - Face recognition pipeline with identity events stored in the database

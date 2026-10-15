@@ -10,19 +10,24 @@ function DetectionView() {
   const [error, setError] = useState(null)
   const [isLoading, setIsLoading] = useState(false)
   const [isDragging, setIsDragging] = useState(false)
-  const [imageSize, setImageSize] = useState(null)
+  const [uploadFileSize, setUploadFileSize] = useState(null)
+  const [currentTimeMs, setCurrentTimeMs] = useState(0)
+
+  const isVideo = selectedFile?.type.startsWith('video/') ?? false
 
   function selectFile(file) {
     if (!file) return
-    if (!file.type.startsWith('image/')) {
-      setError('Please choose an image file (JPEG or PNG).')
+    if (!file.type.startsWith('image/' ) && !file.type.startsWith('video/')) {
+      setError('Please choose an image file (JPEG or PNG) or a video file (MP4).')
       return
     }
+    if (previewUrl) URL.revokeObjectURL(previewUrl)
     setSelectedFile(file)
     setPreviewUrl(URL.createObjectURL(file))
     setResult(null)
     setError(null)
-    setImageSize(null)
+    setUploadFileSize(null)
+    setCurrentTimeMs(0)
   }
 
   function handleDrop(event) {
@@ -31,8 +36,8 @@ function DetectionView() {
     selectFile(event.dataTransfer.files[0])
   }
 
-  function handleImageLoad(event) {
-    setImageSize({
+  function fileLoad(event) {
+    setUploadFileSize({
       width: event.target.naturalWidth,
       height: event.target.naturalHeight,
     })
@@ -49,7 +54,8 @@ function DetectionView() {
     formData.append('file', selectedFile)
 
     try {
-      const response = await axios.post(`${API_BASE_URL}/detect`, formData)
+      const endpoint = isVideo ? '/detect/video' : '/detect'
+      const response = await axios.post(`${API_BASE_URL}${endpoint}`, formData)
       setResult(response.data)
     } catch (err) {
       setError(err.response?.data?.detail ?? err.message)
@@ -58,16 +64,37 @@ function DetectionView() {
     }
   }
 
-  const averageConfidence =
-    result && result.detections.length > 0
-      ? result.detections.reduce((sum, d) => sum + d.confidence, 0) / result.detections.length
-      : null
+  // For video, show the detections of the latest sampled frame at or before the playhead.
+  let overlayDetections = []
+  if (result) {
+    if (isVideo) {
+      const frame = result.frames.findLast((f) => f.timestamp_ms <= currentTimeMs)
+      overlayDetections = frame ? frame.detections : []
+    } else {
+      overlayDetections = result.detections
+    }
+  }
+
+  const overlaySize = isVideo && result
+    ? { width: result.frame_width, height: result.frame_height }
+    : uploadFileSize
+
+  const averageConfidence = !result
+    ? null
+    : isVideo
+      ? result.frames_analyzed > 0 && result.average_confidence > 0
+        ? result.average_confidence
+        : null
+      : result.detections.length > 0
+        ? result.detections.reduce((sum, d) => sum + d.confidence, 0) / result.detections.length
+        : null
+  const peopleCount = result ? (isVideo ? result.peak_person_count : result.person_count) : 0
 
   return (
     <section>
       <div className="page-header">
         <h2>Person detection</h2>
-        <p>Upload an image to detect and count the people in it.</p>
+        <p>Upload an image or video to detect and count the people in it.</p>
       </div>
 
       <label
@@ -79,9 +106,10 @@ function DetectionView() {
         onDragLeave={() => setIsDragging(false)}
         onDrop={handleDrop}
       >
-        <strong>Drop an image here or click to browse</strong>
-        <span>JPEG or PNG</span>
-        <input type="file" accept="image/*" onChange={(e) => selectFile(e.target.files[0])} />
+        <strong>Drop an image/video here or click to browse</strong>
+        <span>JPEG, PNG, or MP4</span>
+        {/* File input for selecting an image, reminder to add video support later */}
+        <input type="file" accept="image/*,video/*" onChange={(e) => selectFile(e.target.files[0])} />
       </label>
 
       {error && <div className="error">{error}</div>}
@@ -90,13 +118,22 @@ function DetectionView() {
         <div className="workspace">
           <div className="card">
             <div className="preview">
-              <img src={previewUrl} alt="Selected preview" onLoad={handleImageLoad} />
+              {isVideo ? (
+                <video
+                  src={previewUrl}
+                  controls
+                  onTimeUpdate={(e) => setCurrentTimeMs(e.target.currentTime * 1000)}
+                  onSeeked={(e) => setCurrentTimeMs(e.target.currentTime * 1000)}
+                />
+              ) : (
+                <img src={previewUrl} alt="Selected preview" onLoad={fileLoad} />
+              )}
 
-              {result && imageSize && (
-                <svg viewBox={`0 0 ${imageSize.width} ${imageSize.height}`}>
-                  {result.detections.map((detection, index) => {
+              {result && overlaySize && (
+                <svg viewBox={`0 0 ${overlaySize.width} ${overlaySize.height}`}>
+                  {overlayDetections.map((detection, index) => {
                     const { x1, y1, x2, y2 } = detection.box
-                    const labelFontSize = Math.max(imageSize.width, imageSize.height) / 35
+                    const labelFontSize = Math.max(overlaySize.width, overlaySize.height) / 35
                     const labelPadding = labelFontSize / 4
 
                     return (
@@ -108,14 +145,14 @@ function DetectionView() {
                           height={y2 - y1}
                           fill="none"
                           stroke="#34d399"
-                          strokeWidth={Math.max(imageSize.width, imageSize.height) / 200}
+                          strokeWidth={Math.max(overlaySize.width, overlaySize.height) / 200}
                         />
                         <text
                           x={x1 + labelPadding}
                           y={y1 + labelFontSize + labelPadding}
                           fill="#34d399"
                           fontSize={labelFontSize}
-                          fontWeight="bold"
+                          fontWeight="normal"
                           stroke="#111"
                           strokeWidth={labelFontSize / 5}
                           paintOrder="stroke"
@@ -143,8 +180,8 @@ function DetectionView() {
               <>
                 <div className="stats">
                   <div className="stat">
-                    <span className="stat-value">{result.person_count}</span>
-                    <span className="stat-label">People</span>
+                    <span className="stat-value">{peopleCount}</span>
+                    <span className="stat-label">{isVideo ? 'Peak people' : 'People'}</span>
                   </div>
                   <div className="stat">
                     <span className="stat-value">
@@ -158,9 +195,16 @@ function DetectionView() {
                   </div>
                 </div>
 
-                {result.detections.length > 0 && (
+                {isVideo && (
+                  <p className="filename">
+                    {result.frames_analyzed} frames analyzed · avg{' '}
+                    {result.average_person_count.toFixed(1)} people per frame
+                  </p>
+                )}
+
+                {overlayDetections.length > 0 && (
                   <ul className="detection-list">
-                    {result.detections.map((detection, index) => (
+                    {overlayDetections.map((detection, index) => (
                       <li key={index}>
                         <span>Person {index + 1}</span>
                         <span>{(detection.confidence * 100).toFixed(1)}%</span>
